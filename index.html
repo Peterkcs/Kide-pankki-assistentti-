@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="fi" class="bg-slate-100">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kide Pankki | Asiakaspalveluassistentin demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script>
+tailwind.config = { theme: { extend: {
+  fontFamily: { sans: ['Inter', 'sans-serif'] },
+  colors: { kide: { 50: '#eef4ff', 100: '#dbe6fe', 200: '#bfd3fe', 500: '#4f6bed', 600: '#3b52d4', 700: '#2f40a8', 800: '#283785', 900: '#1b2559' } }
+} } };
+</script>
+<style>
+  ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+  .appear { animation: fadeIn .25s ease-out; } @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .flash { animation: flash 1.2s ease-out; } @keyframes flash { 0% { box-shadow: 0 0 0 0 rgba(79,107,237,.7); } 100% { box-shadow: 0 0 0 18px rgba(79,107,237,0); } }
+  .num { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body class="min-h-screen font-sans text-slate-800 antialiased">
+
+<header class="bg-kide-900 text-white shadow-md">
+  <div class="max-w-[1500px] mx-auto px-4 lg:px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-kide-500 to-kide-700 flex items-center justify-center"><i class="fa-regular fa-snowflake text-lg"></i></div>
+      <div>
+        <div class="flex items-center gap-2"><h1 class="font-bold text-lg tracking-tight">Kide Pankki AI</h1><span class="bg-kide-700 text-kide-100 text-xs px-2.5 py-0.5 rounded-full border border-kide-500">Asiakaspalveludemo v1.0</span></div>
+        <p class="text-xs text-slate-300 hidden sm:block">Kuvitteellinen pankki. Assistentti vastaa tietokannasta ja vie suoraan oikeaan kohtaan mobiilipankissa.</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="hidden md:flex items-center gap-2 bg-slate-800/70 border border-slate-700 px-3 py-1.5 rounded-lg text-xs">
+        <span id="modeDot" class="w-2 h-2 rounded-full bg-emerald-400"></span><span id="modeText" class="text-slate-200 font-medium">Paikallinen haku (ei API-avainta)</span>
+      </div>
+      <button onclick="openModal('apiModal')" class="bg-kide-600 hover:bg-kide-500 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium flex items-center gap-2"><i class="fa-solid fa-gear"></i><span class="hidden sm:inline">Asetukset</span></button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1500px] mx-auto px-4 lg:px-6 py-5 grid grid-cols-1 xl:grid-cols-12 gap-5">
+
+  <!-- LEFT: scenarios + trace -->
+  <section class="xl:col-span-3 flex flex-col gap-4 order-2 xl:order-1">
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-4">
+      <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2"><i class="fa-solid fa-flask text-kide-600 mr-1"></i>Testiskenaariot</h2>
+      <div class="grid grid-cols-1 gap-1.5" id="scenarios"></div>
+    </div>
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col">
+      <div class="flex border-b border-slate-200 text-xs font-medium">
+        <button id="tTrace" onclick="leftTab('trace')" class="flex-1 py-2.5 border-b-2 border-kide-600 text-kide-700"><i class="fa-solid fa-route mr-1"></i>Vastauksen jäljitys</button>
+        <button id="tStats" onclick="leftTab('stats')" class="flex-1 py-2.5 border-b-2 border-transparent text-slate-500"><i class="fa-solid fa-chart-simple mr-1"></i>Mittarit</button>
+      </div>
+      <div id="paneTrace" class="p-4 text-xs space-y-2 min-h-[220px]"><p class="text-slate-400">Lähetä viesti, niin näet, miten vastaus muodostui: suojaukset, tunnistettu aikomus, haun osumat ja luottamus.</p></div>
+      <div id="paneStats" class="p-4 hidden"></div>
+    </div>
+  </section>
+
+  <!-- CENTER: chat -->
+  <section class="xl:col-span-5 bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden h-[720px] order-1 xl:order-2">
+    <div class="px-5 py-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="relative"><div class="w-9 h-9 rounded-full bg-kide-100 text-kide-700 flex items-center justify-center"><i class="fa-solid fa-robot"></i></div><span class="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full"></span></div>
+        <div><h3 class="text-sm font-semibold">Kide-assistentti</h3><p class="text-xs text-slate-500">Vastaa pankin virallisesta tietokannasta</p></div>
+      </div>
+      <button onclick="resetChat()" class="text-xs text-slate-500 hover:text-slate-800 px-2.5 py-1.5 rounded-lg hover:bg-slate-200/60"><i class="fa-solid fa-rotate-right mr-1"></i>Uusi keskustelu</button>
+    </div>
+    <div id="escBanner" class="hidden bg-red-600 text-white px-5 py-3">
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex gap-3"><i class="fa-solid fa-headset text-xl mt-0.5"></i>
+          <div><p class="text-xs font-bold uppercase tracking-wider">Siirretty asiantuntijalle</p><p class="text-xs text-red-100" id="escInfo"></p></div></div>
+        <button onclick="document.getElementById('escBanner').classList.add('hidden')" class="bg-white/20 hover:bg-white/30 text-xs px-3 py-1.5 rounded-lg shrink-0">Kuittaa</button>
+      </div>
+    </div>
+    <div id="chat" class="flex-1 p-5 overflow-y-auto space-y-4 bg-slate-50/50"></div>
+    <div class="px-4 pt-2 flex flex-wrap gap-1.5" id="suggest"></div>
+    <form onsubmit="send(event)" class="p-4">
+      <div class="relative">
+        <textarea id="inp" rows="2" placeholder="Kirjoita kysymys, esim. paljonko kortin uusiminen maksaa?" class="w-full pl-4 pr-28 py-3 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-kide-500 focus:bg-white resize-none" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();send(event);}"></textarea>
+        <button id="sendBtn" class="absolute right-2.5 bottom-3.5 bg-kide-600 hover:bg-kide-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-1.5 disabled:opacity-50">Lähetä <i class="fa-solid fa-paper-plane text-xs"></i></button>
+      </div>
+      <p class="text-[11px] text-slate-400 mt-1.5 px-1">Älä kirjoita kortinnumeroa, henkilötunnusta tai tunnuksia. Assistentti peittää ne automaattisesti.</p>
+    </form>
+  </section>
+
+  <!-- RIGHT: mock mobile bank -->
+  <section class="xl:col-span-4 flex flex-col items-center order-3">
+    <p class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2 self-start xl:self-center"><i class="fa-solid fa-mobile-screen text-kide-600 mr-1"></i>Kide Mobiilipankki (demo)</p>
+    <div id="phone" class="w-[360px] max-w-full h-[690px] bg-slate-900 rounded-[2.2rem] p-2.5 shadow-xl">
+      <div class="w-full h-full bg-white rounded-[1.7rem] overflow-hidden flex flex-col">
+        <div class="bg-kide-800 text-white px-4 pt-3 pb-3">
+          <div class="flex justify-between text-[10px] text-kide-200 mb-2"><span>9.41</span><span><i class="fa-solid fa-signal"></i> <i class="fa-solid fa-wifi"></i> <i class="fa-solid fa-battery-three-quarters"></i></span></div>
+          <div class="flex items-center gap-2">
+            <a id="backBtn" href="#/" class="w-7 h-7 rounded-full hover:bg-white/10 flex items-center justify-center"><i class="fa-solid fa-chevron-left text-sm"></i></a>
+            <div><p id="appCrumb" class="text-[10px] text-kide-200"></p><p id="appTitle" class="font-semibold text-sm"></p></div>
+          </div>
+        </div>
+        <div id="appBody" class="flex-1 overflow-y-auto p-4 text-sm"></div>
+        <div class="border-t border-slate-200 grid grid-cols-4 text-[10px] text-slate-500">
+          <a href="#/" class="py-2 text-center hover:text-kide-700"><i class="fa-solid fa-house block text-sm mb-0.5"></i>Koti</a>
+          <a href="#/kortit" class="py-2 text-center hover:text-kide-700"><i class="fa-regular fa-credit-card block text-sm mb-0.5"></i>Kortit</a>
+          <a href="#/maksut/uusi" class="py-2 text-center hover:text-kide-700"><i class="fa-solid fa-arrow-right-arrow-left block text-sm mb-0.5"></i>Maksut</a>
+          <a href="#/asiointi/ajanvaraus" class="py-2 text-center hover:text-kide-700"><i class="fa-regular fa-calendar block text-sm mb-0.5"></i>Asiointi</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer class="text-center text-[11px] text-slate-400 pb-6">Kide Pankki on kuvitteellinen. Hinnat, korot ja numerot ovat demotietoja. · Peter Sundberg</footer>
+
+<!-- Settings modal -->
+<div id="apiModal" class="fixed inset-0 bg-slate-900/60 z-50 hidden items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+    <div class="flex items-center justify-between"><h3 class="font-bold flex items-center gap-2"><i class="fa-solid fa-gear text-kide-600"></i>Asetukset</h3><button onclick="closeModal('apiModal')" class="text-slate-400"><i class="fa-solid fa-xmark text-lg"></i></button></div>
+    <p class="text-xs text-slate-600 leading-relaxed">Oletuksena assistentti toimii kokonaan selaimessa: haku tietokannasta, suojaukset ja toimintolinkit. Valinnaisella Gemini-avaimella kielimalli muotoilee vastauksen löydettyjen artikkelien pohjalta. Suojaukset ja linkit toimivat silti ennen mallia.</p>
+    <div>
+      <label class="block text-xs font-semibold mb-1" for="apiKey">Google Gemini API -avain (valinnainen)</label>
+      <input id="apiKey" type="password" placeholder="AIza..." class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg">
+      <label class="block text-xs font-semibold mt-3 mb-1" for="apiModel">Malli</label>
+      <input id="apiModel" type="text" class="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg">
+      <p class="text-[11px] text-slate-400 mt-1">Avain säilyy vain tämän välilehden muistissa (sessionStorage).</p>
+    </div>
+    <div class="flex justify-end gap-2"><button onclick="saveKey(false)" class="px-3 py-2 text-xs text-slate-600 hover:bg-slate-100 rounded-lg">Käytä paikallista hakua</button><button onclick="saveKey(true)" class="px-4 py-2 text-xs bg-kide-600 hover:bg-kide-700 text-white rounded-lg">Tallenna</button></div>
+  </div>
+</div>
+
+<script src="kb.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>'"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[c]));
+const eur = (v, d = 2) => v.toLocaleString('fi-FI', { minimumFractionDigits: d, maximumFractionDigits: d }) + ' €';
+const byId = Object.fromEntries(KB.map(d => [d.id, d]));
+
+/* ================= RETRIEVAL ================= */
+const STOP = new Set('ja on ei se ne mä mää minä mun mulla mulle minun sinä sä te voi voiko voinko voisinko kun että jos olen ole onko oliko mitä miten mikä mitkä kuinka hei moi terve tämä tuo nyt vielä myös vai tai kanssa niin kyllä joo jo sen sitä siitä mutta pitää pitäisi saa saako saanko haluan haluaisin teidän teillä teiltä te teille pankki pankin pankista pankissa pankkiin pankille kide kiden'.split(' '));
+const norm = s => s.toLowerCase().replace(/[^a-zåäö0-9\s]/g, ' ').split(/\s+/).filter(t => t.length > 1 && !STOP.has(t));
+const stem = t => t.length > 4 ? t.slice(0, 4) : t;
+const tri = t => { const p = `  ${t} `, g = new Set(); for (let i = 0; i < p.length - 2; i++) g.add(p.slice(i, i + 3)); return g; };
+const jac = (a, b) => { let n = 0; a.forEach(x => b.has(x) && n++); return n / (a.size + b.size - n); };
+
+// Token matching: common prefix >= 4 and covers >= 60 % of the longer word (handles Finnish inflection: kortti/kortin, laina/lainan)
+const cp = (a, b) => { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; };
+const tokMatch = (q, t) => q === t || (() => { const c = cp(q, t); return c >= 4 && (c / Math.max(q.length, t.length) >= 0.6 || c >= 7); })();
+const DOCS = KB.map(d => {
+  const toks = [...norm(d.title), ...norm(d.title), ...norm(d.title), ...norm(d.kw), ...norm(d.kw), ...norm(d.a.replace(/\*/g, ''))];
+  const tf = {}; toks.forEach(t => tf[t] = (tf[t] || 0) + 1);
+  return { d, tf, words: Object.keys(tf) };
+});
+const VOCAB = [...new Set(DOCS.flatMap(x => x.words))].map(t => ({ t, g: tri(t) }));
+const tfOf = (doc, q) => doc.words.reduce((a, w) => a + (tokMatch(q, w) ? doc.tf[w] : 0), 0);
+const dfOf = q => DOCS.filter(doc => doc.words.some(w => tokMatch(q, w))).length;
+
+function search(text) {
+  const corrections = [], qs = [];
+  norm(text).forEach(t => {
+    let q = t;
+    if (!dfOf(q) && t.length > 3) {
+      const g = tri(t); let best = null, bs = 0;
+      VOCAB.forEach(v => { const j = jac(g, v.g); if (j > bs) { bs = j; best = v.t; } });
+      if (bs >= 0.4) { corrections.push(`${t} → ${best}`); q = best; }
+    }
+    if (!qs.includes(q)) qs.push(q);
+  });
+  const idf = Object.fromEntries(qs.map(q => { const df = dfOf(q); return [q, df ? Math.log(1 + DOCS.length / df) : 0.6]; }));
+  const totalIdf = qs.reduce((a, q) => a + idf[q], 0) || 1;
+  const hits = DOCS.map(doc => {
+    let score = 0, cov = 0;
+    qs.forEach(q => { const tf = tfOf(doc, q); if (tf) { score += idf[q] * (1 + Math.log(tf)); cov += idf[q]; } });
+    return { d: doc.d, score, cov: cov / totalIdf };
+  }).filter(h => h.score > 0).sort((a, b) => b.score - a.score);
+  const top = hits[0], conf = top ? Math.min(0.99, top.cov * (hits[1] ? Math.min(1, 0.55 + (top.score - hits[1].score) / top.score) : 1)) : 0;
+  return { hits: hits.slice(0, 3), corrections, conf, ok: !!top && top.score >= 2.2 && top.cov >= 0.35 };
+}
+
+/* ================= GUARDRAILS & INTENTS ================= */
+const PII = [
+  [/\b(?:\d[ -]?){15,18}\d\b/g, 'kortinnumeron', '**** **** **** ****'],
+  [/\bFI\d{2}(?: ?\d{4}){3} ?\d{2}\b/gi, 'tilinumeron', 'FI** **** **** **** **'],
+  [/\b\d{6}[-+A-FYXWVU]\d{3}[0-9A-Y]\b/g, 'henkilötunnuksen', '******-****']
+];
+const RX = {
+  emergency: /(varast|vei kortin|kortti (on )?(hukassa|kadonnut|kadoksissa|hävinnyt)|hukkasin|kadotin|hävitin|joku (käytti|on käyttänyt)|luvaton|outoja veloituksia|tuntemattomia (ostoja|veloituksia))/,
+  scam: /(huija|kalastel|annoin (tunnu|pin|koodi)|soitti.{0,30}pankista|epäilyttävä (linkki|viesti|tekstiviesti|sähköposti))/,
+  escalate: /(lainapäätö|sitova|myönnät|myönnä|reklam|valitu|valitan|hyvity|roskaa|paska|surkea|vaadin|ihmise|asiakaspalvelijal|virkailija|haluan puhua|ei kukaan vastaa)/,
+  advice: /(kannattaako (ostaa|myydä|sijoittaa)|mihin (kannattaa )?sijoit|suosittel.{0,25}(osake|rahasto|sijoitu)|mikä osake|paras rahasto|bitcoin|krypto|ethereum)/,
+  loan: /(laina|kuukausierä|kuukausimaksu|lyhennys)/,
+  calc: /(laske|paljonko|kuinka paljon|kuukausierä|kuukausimaksu|olisi erä|\d)/,
+  nav: /(ohjaa|vie minut|vie sinne|linkki|linkin|suoraan|avaa se|avaa sivu|mistä (voi|voin|pääsee|pääsen)|missä (voi|voin)|näytä missä|siirry)/,
+  greet: /^(hei|moi|moro|terve|huomenta|päivää|hello|hi)[\s!.]*$/,
+  thanks: /(kiitos|kiitti|kitti|thanks)/
+};
+
+function parseLoan(s) {
+  const t = s.toLowerCase().replace(/(\d)\s(?=\d{3}\b)/g, '$1');
+  let amount = null;
+  const k = t.match(/(\d+(?:[.,]\d+)?)\s*(k|t€|tuhatta)\b/); if (k) amount = parseFloat(k[1].replace(',', '.')) * 1000;
+  if (!amount) { const nums = (t.match(/\d+(?:[.,]\d+)?/g) || []).map(n => parseFloat(n.replace(',', '.'))).filter(n => n >= 1000); if (nums.length) amount = Math.max(...nums); }
+  const y = t.match(/(\d+)\s*(v\b|vuo)/), r = t.match(/(\d+(?:[.,]\d+)?)\s*(%|prosent)/);
+  return { amount, years: y ? parseInt(y[1]) : null, rate: r ? parseFloat(r[1].replace(',', '.')) : null };
+}
+
+/* ================= STATE & METRICS ================= */
+let lastDoc = null, history = [];
+const M = { msgs: 0, resolved: 0, escalated: 0, fallback: 0, guard: 0, appActions: 0, conf: [], intents: {} };
+const count = k => M.intents[k] = (M.intents[k] || 0) + 1;
+
+/* ================= ENGINE ================= */
+function respond(raw) {
+  const trace = [];
+  let text = raw, found = [];
+  PII.forEach(([rx, label, mask]) => { if (rx.test(text)) { found.push(label); text = text.replace(rx, mask); } rx.lastIndex = 0; });
+  trace.push(found.length ? ['shield', 'red', `PII-suodatus: peitetty ${found.join(', ')}`] : ['shield', 'emerald', 'PII-suodatus: ei arkaluonteisia tietoja']);
+  const s = text.toLowerCase();
+  const piiNote = found.length ? `⚠ Peitin viestistäsi ${found.join(' ja ')}. Älä lähetä näitä tietoja chatissa. Pankki ei koskaan pyydä niitä tätä kautta.\n\n` : '';
+  if (found.length) M.guard++;
+
+  const out = (o) => ({ masked: text, trace, ...o, text: piiNote + o.text });
+
+  if (RX.emergency.test(s)) {
+    count('Kiireellinen: kortti'); M.guard++; M.resolved++; lastDoc = byId['kortti-sulku'];
+    trace.push(['bolt', 'red', 'Aikomus: KIIREELLINEN (kadonnut tai varastettu kortti)'], ['forward', 'slate', 'Ohitettiin haku ja vastattiin heti turvallisuusohjeella']);
+    return out({ kind: 'ok', text: '**Sulje kortti heti**, niin sillä ei voi enää maksaa. Sulkeminen on maksutonta ja tulee voimaan välittömästi.\n\nVoit sulkea kortin alla olevasta painikkeesta tai soittaa sulkupalveluun **0800 100 100 (demo)**, joka palvelee 24/7. Jos kortti on varastettu, tee myös rikosilmoitus poliisille.', actions: [['Sulje kortti nyt', '/kortit/sulje'], ['Tilaa uusi kortti', '/kortit/tilaa?syy=kadonnut']], tel: '0800100100', src: byId['kortti-sulku'] });
+  }
+  if (RX.scam.test(s)) {
+    count('Kiireellinen: huijaus'); M.guard++; M.resolved++; lastDoc = byId['huijaus'];
+    trace.push(['bolt', 'red', 'Aikomus: KIIREELLINEN (epäilty huijaus)']);
+    return out({ kind: 'ok', text: byId['huijaus'].a, actions: ACTIONS['huijaus'], tel: '0800100100', src: byId['huijaus'] });
+  }
+  if (RX.escalate.test(s)) {
+    count('Eskalointi'); M.escalated++;
+    const reason = /lainapäätö|sitova|myönn/.test(s) ? 'lainapäätöspyyntö' : /reklam|valit|hyvity/.test(s) ? 'reklamaatio' : /ihmise|asiakaspalvelij|virkailija|haluan puhua/.test(s) ? 'asiakas pyysi ihmistä' : 'turhautunut asiakas';
+    trace.push(['headset', 'red', `Aikomus: ESKALOINTI (${reason})`], ['ban', 'slate', 'Sääntö: assistentti ei tee lainapäätöksiä eikä käsittele reklamaatioita']);
+    return out({ kind: 'esc', reason, text: reason === 'lainapäätöspyyntö'
+      ? 'En voi tehdä lainapäätöstä enkä kertoa henkilökohtaista marginaalia. Ne perustuvat aina luottokelpoisuusarvioon, jonka tekee rahoitusasiantuntija.\n\nSiirsin keskustelun asiantuntijalle yhteenvedon kera, joten sinun ei tarvitse kertoa asiaa uudelleen. Voit myös jättää lainahakemuksen heti.'
+      : 'Pahoittelen tilannetta. Siirsin keskustelun asiantuntijalle yhteenvedon kera, joten sinun ei tarvitse toistaa asiaa. Asiantuntija ottaa sinuun yhteyttä.', actions: reason === 'lainapäätöspyyntö' ? [['Hae asuntolainaa', '/lainat/hae'], ['Varaa aika lainaneuvojalle', '/asiointi/ajanvaraus?aihe=laina']] : [['Lähetä viesti liitteineen', '/asiointi/viesti?aihe=reklamaatio']] });
+  }
+  if (RX.advice.test(s)) {
+    count('Sijoitusneuvonta (rajattu)'); M.guard++; M.resolved++;
+    trace.push(['scale-balanced', 'amber', 'Aikomus: henkilökohtainen sijoitusneuvo'], ['ban', 'slate', 'Sääntö: ei yksilöllisiä sijoitussuosituksia chatissa']);
+    const crypto = /bitcoin|krypto|ethereum/.test(s);
+    return out({ kind: 'ok', text: (crypto ? 'Kide Pankki ei välitä kryptovaluuttoja.\n\n' : '') + 'En voi antaa henkilökohtaisia sijoitussuosituksia, koska ne edellyttävät taloustilanteesi, tavoitteidesi ja riskinsietokykysi arviointia. Sijoitusasiantuntija tekee sen kanssasi maksutta.\n\nYleisesti: hajauttaminen ja pitkä sijoitusaika pienentävät riskiä, ja sijoituksen arvo voi myös laskea.', actions: [['Varaa aika sijoitusasiantuntijalle', '/asiointi/ajanvaraus?aihe=sijoitus'], ['Tutustu rahastoihin', '/sijoitus/rahastot']] });
+  }
+  if (RX.loan.test(s) && RX.calc.test(s)) {
+    const p = parseLoan(s);
+    if (p.amount) {
+      count('Työkalu: lainalaskuri'); M.resolved++;
+      const years = p.years || 25, rate = p.rate ?? 4.0, n = years * 12, i = rate / 100 / 12;
+      const pay = i ? p.amount * i / (1 - Math.pow(1 + i, -n)) : p.amount / n, interest = pay * n - p.amount;
+      trace.push(['calculator', 'kide', 'Aikomus: lainalaskelma (työkalu)'], ['list', 'slate', `Tunnistettu: ${p.amount.toLocaleString('fi-FI')} €, ${p.years ?? '–'} v, ${p.rate ?? '–'} %`]);
+      const assume = [!p.years && 'laina-aika 25 v', p.rate == null && 'korko 4,0 %'].filter(Boolean);
+      lastDoc = byId['asuntolaina-haku'];
+      return out({ kind: 'ok', text: `**Esimerkkilaskelma (annuiteetti):**\n- Lainasumma: **${p.amount.toLocaleString('fi-FI')} €**\n- Laina-aika: **${years} v**, korko **${rate.toLocaleString('fi-FI')} %**\n- Kuukausierä: **${eur(pay)}**\n- Korkoja yhteensä: **${eur(interest, 0)}**\n\n${assume.length ? `Oletin: ${assume.join(', ')}. ` : ''}Laskelma ei sisällä kuluja eikä ole lainatarjous. Henkilökohtainen marginaali selviää lainahakemuksessa.`, actions: [['Hae asuntolainaa näillä tiedoilla', `/lainat/hae?summa=${Math.round(p.amount)}&aika=${years}`]] });
+    }
+  }
+  if (RX.greet.test(s.trim())) { count('Tervehdys'); trace.push(['hand', 'slate', 'Aikomus: tervehdys']); return out({ kind: 'ok', text: 'Hei! Miten voin auttaa? Voit kysyä esimerkiksi korteista, maksuista, lainoista tai tunnuksista.' }); }
+  if (RX.thanks.test(s) && norm(s).length <= 3) { count('Kiitos'); trace.push(['hand', 'slate', 'Aikomus: kiitos']); return out({ kind: 'ok', text: 'Ole hyvä! Kerro, jos voin auttaa vielä jossain.' }); }
+
+  const isNav = RX.nav.test(s);
+  const NAVW = /\b(ohjaa|ohjaisitko|ohjata|vie|viedä|veisitkö|minut|sinne|siihen|siellä|linkki|linkin|linkkiä|anna|suoraan|avaa|avaisitko|siirry|näytä|mistä|missä|pääsee|pääsen|kohtaan|sivulle|sivu)\b/g;
+  const r = search(isNav ? text.toLowerCase().replace(NAVW, ' ') : text);
+  if (r.corrections.length) trace.push(['spell-check', 'kide', `Kirjoitusvirheiden korjaus: ${r.corrections.join(', ')}`]);
+  trace.push(['magnifying-glass', 'kide', 'Haku tietokannasta:', r.hits.map(h => ({ t: h.d.title, sc: h.score, cov: h.cov }))]);
+
+  // navigation request: use current hit or previous topic
+  if (isNav) {
+    const target = (r.ok && ACTIONS[r.hits[0].d.id]) ? r.hits[0].d : lastDoc;
+    if (target && ACTIONS[target.id]) {
+      count('Navigointi'); M.resolved++; lastDoc = target;
+      const [label, route] = ACTIONS[target.id][0];
+      trace.push(['location-arrow', 'emerald', `Aikomus: ohjaus näkymään "${label}"${target === r.hits[0]?.d ? '' : ' (edellisen aiheen perusteella)'}`]);
+      return out({ kind: 'ok', text: `Avasin näkymän **${label}** mobiilipankkiin. Voit jatkaa siellä suoraan, tai palata siihen alla olevasta linkistä.`, actions: ACTIONS[target.id], autoNav: route, src: target });
+    }
+  }
+  if (r.ok) {
+    const d = r.hits[0].d; count(d.cat); M.resolved++; M.conf.push(r.conf); lastDoc = d;
+    trace.push(['check', 'emerald', `Vastaus: "${d.title}" (luottamus ${Math.round(r.conf * 100)} %)`]);
+    return out({ kind: 'ok', text: d.a, actions: ACTIONS[d.id], src: d, conf: r.conf, related: r.hits.slice(1).filter(h => h.score > 2).map(h => h.d) });
+  }
+  count('Ei vastausta'); M.fallback++;
+  trace.push(['circle-question', 'amber', 'Ei riittävän varmaa osumaa: ei arvata, tarjotaan vaihtoehdot']);
+  return out({ kind: 'fallback', text: 'En löytänyt tähän varmaa vastausta pankin tietokannasta, enkä halua arvata. Tarkoititko jotain näistä? Voin myös siirtää kysymyksen asiantuntijalle.', related: r.hits.map(h => h.d), offerHuman: true });
+}
+
+/* ================= OPTIONAL LLM ================= */
+async function llmPhrase(raw, res) {
+  const key = sessionStorage.getItem('GEMINI_KEY'); if (!key || !res.src && !res.related) return null;
+  const ctx = [res.src, ...(res.related || [])].filter(Boolean).slice(0, 3).map(d => `[${d.title}]\n${d.a}`).join('\n\n');
+  const prompt = `Olet Kide Pankin asiakaspalveluassistentti. Vastaa asiakkaalle suomeksi, ystävällisesti ja tiiviisti (enintään 120 sanaa).\nSÄÄNNÖT: Käytä vain KONTEKSTIN tietoja. Älä keksi hintoja, korkoja tai ehtoja. Jos tieto puuttuu, sano se. Älä kehota soittamaan tai etsimään valikoista, koska vastauksen alle lisätään automaattisesti suora linkki.\n\nKONTEKSTI:\n${ctx}\n\nASIAKKAAN VIESTI:\n${res.masked}`;
+  const model = sessionStorage.getItem('GEMINI_MODEL') || 'gemini-2.5-flash';
+  const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.1, maxOutputTokens: 400 } }) });
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error?.message || 'HTTP ' + r.status);
+  const j = await r.json(); return j.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || null;
+}
+
+/* ================= CHAT UI ================= */
+const md = t => esc(t).replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-slate-900">$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>');
+function actionBtns(actions) {
+  return (actions || []).map(([l, r]) => `<a href="#${r}" class="inline-flex items-center gap-1.5 bg-kide-600 hover:bg-kide-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg shadow-sm"><i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>${esc(l)}</a>`).join(' ');
+}
+function addUser(t) {
+  const w = document.createElement('div'); w.className = 'flex justify-end gap-3 appear';
+  w.innerHTML = `<div class="bg-kide-600 text-white rounded-2xl rounded-tr-none px-4 py-3 max-w-[85%] text-sm whitespace-pre-wrap">${esc(t)}</div><div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center shrink-0 text-xs"><i class="fa-solid fa-user"></i></div>`;
+  $('chat').appendChild(w); $('chat').scrollTop = 1e9;
+}
+function addBot(res) {
+  const escd = res.kind === 'esc', w = document.createElement('div'); w.className = 'flex gap-3 appear';
+  const rel = (res.related || []).length ? `<div class="mt-2 flex flex-wrap gap-1.5">${res.related.map(d => `<button onclick="ask(${JSON.stringify(d.title).replace(/"/g, '&quot;')})" class="text-[11px] px-2.5 py-1 rounded-full border border-slate-200 hover:border-kide-500 hover:text-kide-700">${esc(d.title)}</button>`).join('')}${res.offerHuman ? `<button onclick="ask('Haluan puhua ihmisen kanssa')" class="text-[11px] px-2.5 py-1 rounded-full border border-red-200 text-red-700 hover:bg-red-50"><i class="fa-solid fa-headset mr-1"></i>Asiantuntijalle</button>` : ''}</div>` : '';
+  const foot = res.src ? `<div class="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400"><span><i class="fa-regular fa-file-lines mr-1"></i>Lähde: ${esc(res.src.cat)} / ${esc(res.src.title)} (päivitetty ${res.src.upd})</span>${res.conf ? `<span>luottamus ${Math.round(res.conf * 100)} %</span>` : ''}</div>` : '';
+  w.innerHTML = `<div class="w-8 h-8 rounded-full ${escd ? 'bg-red-600' : 'bg-kide-600'} text-white flex items-center justify-center shrink-0 text-xs"><i class="fa-solid ${escd ? 'fa-headset' : 'fa-robot'}"></i></div>
+    <div class="bg-white border ${escd ? 'border-red-300 ring-2 ring-red-100' : 'border-slate-200'} rounded-2xl rounded-tl-none px-4 py-3 shadow-sm max-w-[88%]">
+      <div class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">${md(res.text)}</div>
+      ${res.actions || res.tel ? `<div class="mt-3 flex flex-wrap gap-1.5">${actionBtns(res.actions)}${res.tel ? `<a href="tel:${res.tel}" class="inline-flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg"><i class="fa-solid fa-phone text-[10px]"></i>Soita sulkupalveluun</a>` : ''}</div>` : ''}
+      ${rel}${res.llm ? '<p class="mt-2 text-[10px] text-slate-400"><i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Muotoiltu kielimallilla haettujen artikkelien pohjalta</p>' : ''}${foot}
+    </div>`;
+  $('chat').appendChild(w); $('chat').scrollTop = 1e9;
+}
+function addSystem(html) {
+  const w = document.createElement('div'); w.className = 'flex justify-center appear';
+  w.innerHTML = `<div class="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1"><i class="fa-solid fa-circle-check mr-1"></i>${html}</div>`;
+  $('chat').appendChild(w); $('chat').scrollTop = 1e9;
+}
+function loading() { const w = document.createElement('div'); w.id = 'ld'; w.className = 'flex gap-3'; w.innerHTML = `<div class="w-8 h-8 rounded-full bg-kide-600 text-white flex items-center justify-center text-xs"><i class="fa-solid fa-robot"></i></div><div class="bg-white border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 flex gap-1.5">${[0, .15, .3].map(d => `<span class="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style="animation-delay:${d}s"></span>`).join('')}</div>`; $('chat').appendChild(w); $('chat').scrollTop = 1e9; }
+
+async function send(e) {
+  e && e.preventDefault(); const raw = $('inp').value.trim(); if (!raw) return;
+  $('inp').value = ''; M.msgs++; $('sendBtn').disabled = true;
+  const res = respond(raw);
+  addUser(res.masked); history.push({ who: 'Asiakas', t: res.masked });
+  loading(); await new Promise(r => setTimeout(r, 450));
+  try { if (res.kind === 'ok' && res.src && !res.autoNav) { const l = await llmPhrase(raw, res); if (l) { res.text = l; res.llm = true; res.trace.push(['wand-magic-sparkles', 'kide', 'Gemini muotoili vastauksen haetuista artikkeleista']); } } }
+  catch (err) { res.trace.push(['triangle-exclamation', 'amber', 'Gemini-virhe, käytettiin tietokannan vastausta: ' + err.message]); }
+  $('ld')?.remove(); addBot(res); history.push({ who: 'Assistentti', t: res.text });
+  if (res.kind === 'esc') escalate(res.reason);
+  if (res.autoNav) { location.hash = '#' + res.autoNav; }
+  renderTrace(res.trace); renderStats(); $('sendBtn').disabled = false;
+}
+function ask(t) { $('inp').value = t; send(); }
+function escalate(reason) {
+  const q = 3 + Math.floor(Math.random() * 5), sum = history.filter(h => h.who === 'Asiakas').slice(-3).map(h => '“' + h.t.slice(0, 90) + (h.t.length > 90 ? '…' : '') + '”').join(' ');
+  $('escInfo').innerHTML = `Syy: ${esc(reason)} · Jonossa ${q}. · Arvioitu odotus ${q * 2} min.<br><span class="text-red-50">Yhteenveto asiantuntijalle: ${esc(sum)}</span>`;
+  $('escBanner').classList.remove('hidden');
+}
+
+/* ================= TRACE & STATS ================= */
+const COLORS = { red: 'text-red-600', emerald: 'text-emerald-600', kide: 'text-kide-600', amber: 'text-amber-600', slate: 'text-slate-500' };
+function renderTrace(tr) {
+  $('paneTrace').innerHTML = tr.map(([ic, c, t, hits]) => `<div class="flex gap-2 appear"><i class="fa-solid fa-${ic} ${COLORS[c]} w-4 mt-0.5"></i><div class="flex-1"><p class="text-slate-700">${esc(t)}</p>${hits ? (hits.length ? hits.map(h => `<div class="mt-1"><div class="flex justify-between text-[11px] text-slate-500"><span class="truncate pr-2">${esc(h.t)}</span><span class="num">${h.sc.toFixed(1)}</span></div><div class="h-1.5 bg-slate-100 rounded"><div class="h-1.5 bg-kide-500 rounded" style="width:${Math.min(100, h.cov * 100)}%"></div></div></div>`).join('') : '<p class="text-[11px] text-slate-400">ei osumia</p>') : ''}</div></div>`).join('');
+}
+function renderStats() {
+  const handled = M.resolved + M.escalated + M.fallback, cont = handled ? Math.round(M.resolved / handled * 100) : 0;
+  const avg = M.conf.length ? Math.round(M.conf.reduce((a, b) => a + b, 0) / M.conf.length * 100) : 0;
+  const tile = (l, v, s) => `<div class="bg-slate-50 rounded-lg p-3"><p class="text-[11px] text-slate-500">${l}</p><p class="num text-xl font-bold text-slate-900">${v}</p>${s ? `<p class="text-[10px] text-slate-400">${s}</p>` : ''}</div>`;
+  const ints = Object.entries(M.intents).sort((a, b) => b[1] - a[1]);
+  $('paneStats').innerHTML = `<div class="grid grid-cols-2 gap-2">${tile('Viestejä', M.msgs)}${tile('Ratkaistu botilla', cont + ' %', 'containment rate')}${tile('Eskaloitu', M.escalated)}${tile('Suojaus lauennut', M.guard, 'PII, huijaus, neuvonta')}${tile('Toiminnot sovelluksessa', M.appActions, 'tehty linkin kautta')}${tile('Keskim. luottamus', avg + ' %')}</div>
+    <p class="text-[11px] font-semibold text-slate-500 mt-4 mb-1">Aiheet</p>${ints.length ? ints.map(([k, v]) => `<div class="flex justify-between text-xs py-0.5"><span>${esc(k)}</span><span class="num text-slate-500">${v}</span></div>`).join('') : '<p class="text-xs text-slate-400">ei vielä dataa</p>'}`;
+}
+function leftTab(t) {
+  $('paneTrace').classList.toggle('hidden', t !== 'trace'); $('paneStats').classList.toggle('hidden', t !== 'stats');
+  $('tTrace').className = 'flex-1 py-2.5 border-b-2 ' + (t === 'trace' ? 'border-kide-600 text-kide-700' : 'border-transparent text-slate-500');
+  $('tStats').className = 'flex-1 py-2.5 border-b-2 ' + (t === 'stats' ? 'border-kide-600 text-kide-700' : 'border-transparent text-slate-500');
+}
+
+/* ================= MOCK MOBILE BANK (router) ================= */
+const CARDS = [['debit', 'Debit •••• 4417'], ['credit', 'Credit •••• 9021']];
+const ref = () => 'KP-' + Math.floor(100000 + Math.random() * 900000);
+const SCREENS = {
+  '/kortit/tilaa': { crumb: 'Kortit', title: 'Tilaa uusi kortti', fields: [
+      { id: 'kortti', label: 'Kortti', type: 'radio', options: CARDS },
+      { id: 'syy', label: 'Syy', type: 'select', options: [['rikki', 'Kortti rikkoutunut'], ['kadonnut', 'Kortti kadonnut'], ['vanhenee', 'Kortti vanhenee']] },
+      { id: 'toimitus', label: 'Toimitus', type: 'radio', options: [['normaali', 'Normaali 5–7 arkipäivää · 10,00 €'], ['pika', 'Pikatoimitus 2–3 arkipäivää · 25,00 €']] }],
+    submit: 'Tilaa kortti', done: v => `Kortti tilattu (${v.toimitus === 'pika' ? 'pikatoimitus, 25,00 €' : 'normaali toimitus, 10,00 €'}). ${v.syy === 'kadonnut' ? 'Vanha kortti suljettiin samalla.' : 'Vanha kortti toimii, kunnes aktivoit uuden.'}` },
+  '/kortit/sulje': { crumb: 'Kortit', title: 'Sulje kortti', danger: true, fields: [
+      { id: 'kortti', label: 'Suljettava kortti', type: 'radio', options: [...CARDS, ['kaikki', 'Kaikki kortit']] },
+      { id: 'syy', label: 'Syy', type: 'select', options: [['kadonnut', 'Kadonnut'], ['varastettu', 'Varastettu'], ['vaarinkaytto', 'Epäilen väärinkäyttöä']] }],
+    submit: 'Sulje kortti pysyvästi', done: v => `${v.kortti === 'kaikki' ? 'Kaikki kortit' : 'Kortti'} suljettu. Sulkeminen tuli voimaan heti.`, next: [['Tilaa uusi kortti', '/kortit/tilaa?syy=kadonnut']] },
+  '/kortit/pin': { crumb: 'Kortit', title: 'Näytä PIN-koodi', fields: [{ id: 'kortti', label: 'Kortti', type: 'radio', options: CARDS }],
+    submit: 'Vahvista ja näytä', done: () => 'PIN-koodi (demo): 4 8 1 2. Koodi näkyy 10 sekuntia.' },
+  '/kortit/rajat': { crumb: 'Kortit', title: 'Käyttörajat ja asetukset', fields: [
+      { id: 'kortti', label: 'Kortti', type: 'radio', options: CARDS },
+      { id: 'nosto', label: 'Nostoraja €/vrk', type: 'number', def: 1000 }, { id: 'osto', label: 'Ostoraja €/vrk', type: 'number', def: 3000 },
+      { id: 'verkko', label: 'Verkko-ostot sallittu', type: 'toggle', def: true }, { id: 'ulkomaat', label: 'Käyttö euroalueen ulkopuolella', type: 'toggle', def: false }],
+    submit: 'Tallenna', done: v => `Rajat päivitetty: nostot ${v.nosto} €/vrk, ostot ${v.osto} €/vrk.` },
+  '/maksut/uusi': { crumb: 'Maksut', title: 'Uusi maksu', fields: [
+      { id: 'tyyppi', label: 'Maksutapa', type: 'radio', options: [['pika', 'Pikasiirto (heti perillä)'], ['sepa', 'SEPA-siirto (seuraava pankkipäivä)'], ['swift', 'Ulkomaanmaksu SWIFT · 15,00 €']] },
+      { id: 'saaja', label: 'Saaja', type: 'text', def: 'Matti Meikäläinen' }, { id: 'tili', label: 'Tilinumero', type: 'text', def: 'FI00 0000 0000 0000 00' }, { id: 'summa', label: 'Summa €', type: 'number', def: 50 }],
+    submit: 'Hyväksy maksu', done: v => `Maksu ${v.summa} € saajalle ${v.saaja} hyväksytty (${v.tyyppi === 'pika' ? 'pikasiirto' : v.tyyppi === 'swift' ? 'SWIFT' : 'SEPA'}).` },
+  '/maksut/elasku': { crumb: 'Maksut', title: 'Tilaa e-lasku', fields: [
+      { id: 'laskuttaja', label: 'Laskuttaja', type: 'select', options: [['sahko', 'Sähköyhtiö Oy (demo)'], ['puhelin', 'Teleoperaattori Oy (demo)'], ['vakuutus', 'Vakuutusyhtiö Oy (demo)']] },
+      { id: 'auto', label: 'Hyväksy automaattisesti', type: 'toggle', def: false }, { id: 'raja', label: 'Automaattihyväksynnän yläraja €', type: 'number', def: 150 }],
+    submit: 'Tilaa e-lasku', done: v => `E-lasku tilattu${v.auto ? `, automaattinen hyväksyntä ${v.raja} € asti` : ''}.` },
+  '/tilit/avaa': { crumb: 'Tilit', title: 'Avaa uusi tili', fields: [
+      { id: 'tili', label: 'Tili', type: 'radio', options: [['kaytto', 'Käyttötili'], ['saasto', 'Säästötili · korko 1,25 %'], ['maara', '12 kk määräaikaistili · 2,10 %']] },
+      { id: 'kayttotarkoitus', label: 'Käyttötarkoitus (asiakkaan tunteminen)', type: 'select', options: [['saastaminen', 'Säästäminen'], ['arki', 'Päivittäiset menot'], ['muu', 'Muu']] }],
+    submit: 'Avaa tili', done: v => `${{ kaytto: 'Käyttötili', saasto: 'Säästötili', maara: 'Määräaikaistili' }[v.tili]} avattu. Tilinumero näkyy etusivulla.` },
+  '/tilit/paketti': { crumb: 'Tilit', title: 'Pankkipaketti', fields: [
+      { id: 'paketti', label: 'Valitse paketti', type: 'radio', options: [['perus', 'Peruspaketti · 4,90 €/kk'], ['nuori', 'Nuoret alle 26 v · 0,00 €/kk']] }],
+    submit: 'Vaihda paketti', done: v => `Paketti vaihdettu: ${v.paketti === 'nuori' ? 'Nuoret (0,00 €/kk)' : 'Peruspaketti (4,90 €/kk)'}. Muutos voimaan seuraavan kuun alusta.` },
+  '/lainat/hae': { crumb: 'Lainat', title: 'Hae asuntolainaa', fields: [
+      { id: 'summa', label: 'Lainasumma €', type: 'number', def: 200000 }, { id: 'aika', label: 'Laina-aika (v)', type: 'number', def: 25 },
+      { id: 'tulot', label: 'Bruttotulot €/kk', type: 'number', def: 4000 }, { id: 'kohde', label: 'Kohde', type: 'select', options: [['etsin', 'Etsin vielä asuntoa (lainalupaus)'], ['loydetty', 'Kohde löydetty']] }],
+    submit: 'Lähetä hakemus', done: v => `Hakemus vastaanotettu (${Number(v.summa).toLocaleString('fi-FI')} €, ${v.aika} v). Saat vastauksen 1–3 arkipäivässä. Lopullinen päätös perustuu luottokelpoisuusarvioon.` },
+  '/lainat/lyhennysvapaa': { crumb: 'Lainat', title: 'Hae lyhennysvapaata', fields: [
+      { id: 'laina', label: 'Laina', type: 'radio', options: [['asunto', 'Asuntolaina •••• 7731']] },
+      { id: 'kk', label: 'Kesto', type: 'select', options: [['3', '3 kuukautta'], ['6', '6 kuukautta'], ['12', '12 kuukautta']] }],
+    submit: 'Hae (100,00 €)', done: v => `Lyhennysvapaa ${v.kk} kk haettu. Laina-aika pitenee vastaavasti. Muutosmaksu 100,00 €.` },
+  '/asiointi/ajanvaraus': { crumb: 'Asiointi', title: 'Varaa aika', fields: [
+      { id: 'aihe', label: 'Aihe', type: 'select', options: [['laina', 'Asuntolaina'], ['sijoitus', 'Sijoittaminen'], ['perinto', 'Perintöasiat'], ['muu', 'Muu asia']] },
+      { id: 'tapa', label: 'Tapa', type: 'radio', options: [['video', 'Videotapaaminen'], ['konttori', 'Konttori, Oulu (demo)']] },
+      { id: 'aika', label: 'Aika', type: 'radio', options: [['to10', 'To klo 10.00'], ['to14', 'To klo 14.30'], ['pe9', 'Pe klo 9.00']] }],
+    submit: 'Vahvista varaus', done: v => `Aika varattu: ${{ to10: 'to 10.00', to14: 'to 14.30', pe9: 'pe 9.00' }[v.aika]}, ${v.tapa === 'video' ? 'videotapaaminen' : 'konttori'}. Vahvistus lähetettiin sähköpostiin.` },
+  '/asiointi/viesti': { crumb: 'Asiointi', title: 'Lähetä viesti', fields: [
+      { id: 'aihe', label: 'Aihe', type: 'select', options: [['yleinen', 'Yleinen kysymys'], ['reklamaatio', 'Reklamaatio'], ['kortit', 'Kortit']] }, { id: 'viesti', label: 'Viesti', type: 'textarea', def: '' }],
+    submit: 'Lähetä', done: () => 'Viesti lähetetty. Vastaamme 1 arkipäivän kuluessa.' },
+  '/asetukset/omat-tiedot': { crumb: 'Asetukset', title: 'Omat tiedot', fields: [
+      { id: 'osoite', label: 'Katuosoite', type: 'text', def: 'Esimerkkikatu 1 A' }, { id: 'postinumero', label: 'Postinumero ja -toimipaikka', type: 'text', def: '90100 Oulu' }, { id: 'puhelin', label: 'Puhelin', type: 'text', def: '040 000 0000' }],
+    submit: 'Tallenna', done: () => 'Yhteystiedot päivitetty.' },
+  '/asetukset/tunnistus': { crumb: 'Asetukset', title: 'Kide Tunnistus', fields: [
+      { id: 'toiminto', label: 'Toiminto', type: 'radio', options: [['aktivoi', 'Aktivoi uusi laite'], ['vaihda', 'Vaihda tunnusluku'], ['poista', 'Poista vanha laite']] }],
+    submit: 'Jatka', done: v => ({ aktivoi: 'Aktivointilinkki lähetetty. Vahvista henkilöllisyys passilla sovelluksessa.', vaihda: 'Tunnusluku vaihdettu.', poista: 'Vanha laite poistettu.' }[v.toiminto]) },
+  '/asiakirjat': { crumb: 'Asiakirjat', title: 'Asiakirjat', fields: [
+      { id: 'doc', label: 'Valitse asiakirja', type: 'radio', options: [['vuosi', 'Vuosi-ilmoitus 2025'], ['ote', 'Tiliote 12/2025'], ['laina', 'Lainan korkotodistus 2025']] }],
+    submit: 'Avaa PDF', done: v => `${{ vuosi: 'Vuosi-ilmoitus 2025', ote: 'Tiliote 12/2025', laina: 'Lainan korkotodistus 2025' }[v.doc]} avattu (demo).` },
+  '/sijoitus/rahastot': { crumb: 'Sijoittaminen', title: 'Aloita rahastosäästäminen', fields: [
+      { id: 'rahasto', label: 'Rahasto', type: 'radio', options: [['global', 'Kide Global Indeksi · 0,25 %'], ['eurooppa', 'Kide Eurooppa Indeksi · 0,30 %'], ['korko', 'Kide Korko · 0,40 %']] },
+      { id: 'summa', label: 'Kuukausisumma €', type: 'number', def: 50 }],
+    submit: 'Aloita säästäminen', done: v => `Kuukausisäästö ${v.summa} € aloitettu. Ensimmäinen merkintä tehdään kuun 15. päivä.` }
+};
+const HOME = [['fa-regular fa-credit-card', 'Kortit', '/kortit'], ['fa-solid fa-arrow-right-arrow-left', 'Uusi maksu', '/maksut/uusi'], ['fa-solid fa-piggy-bank', 'Avaa tili', '/tilit/avaa'], ['fa-solid fa-house-chimney', 'Lainat', '/lainat/hae'], ['fa-regular fa-calendar', 'Varaa aika', '/asiointi/ajanvaraus'], ['fa-regular fa-file-lines', 'Asiakirjat', '/asiakirjat'], ['fa-solid fa-chart-line', 'Rahastot', '/sijoitus/rahastot'], ['fa-solid fa-user-gear', 'Omat tiedot', '/asetukset/omat-tiedot']];
+const CARDMENU = [['fa-solid fa-plus', 'Tilaa uusi kortti', '/kortit/tilaa'], ['fa-solid fa-lock', 'Sulje kortti', '/kortit/sulje'], ['fa-solid fa-key', 'Näytä PIN', '/kortit/pin'], ['fa-solid fa-sliders', 'Käyttörajat', '/kortit/rajat']];
+const tiles = list => `<div class="grid grid-cols-2 gap-2.5">${list.map(([ic, l, r]) => `<a href="#${r}" class="border border-slate-200 rounded-xl p-3 hover:border-kide-500 hover:bg-kide-50"><i class="${ic} text-kide-600 mb-2 block"></i><span class="text-xs font-medium">${l}</span></a>`).join('')}</div>`;
+
+function route() {
+  const h = location.hash.slice(1) || '/', [path, qs] = h.split('?'), q = Object.fromEntries(new URLSearchParams(qs || ''));
+  const body = $('appBody');
+  $('backBtn').style.visibility = path === '/' ? 'hidden' : 'visible';
+  if (path === '/' || !SCREENS[path] && path !== '/kortit') {
+    $('appCrumb').textContent = 'Hyvää päivää,'; $('appTitle').textContent = 'Peter (demo)';
+    body.innerHTML = `<div class="bg-gradient-to-br from-kide-600 to-kide-800 text-white rounded-2xl p-4 mb-4"><p class="text-[11px] text-kide-100">Käyttötili FI•• •••• •••• 1208</p><p class="num text-2xl font-bold mt-1">2 418,36 €</p></div>${tiles(HOME)}<p class="text-[10px] text-slate-400 mt-4">Demosovellus. Linkit chatista avaavat suoraan oikean näkymän.</p>`;
+  } else if (path === '/kortit') {
+    $('appCrumb').textContent = 'Koti'; $('appTitle').textContent = 'Kortit';
+    body.innerHTML = `<div class="space-y-2 mb-4">${CARDS.map(([, l], i) => `<div class="rounded-xl p-3 text-white ${i ? 'bg-slate-700' : 'bg-kide-700'}"><p class="text-[10px] opacity-80">Kide ${i ? 'Credit' : 'Debit'}</p><p class="num font-semibold mt-3">${l.split(' ').slice(1).join(' ')}</p></div>`).join('')}</div>${tiles(CARDMENU)}`;
+  } else {
+    const sc = SCREENS[path]; $('appCrumb').textContent = sc.crumb; $('appTitle').textContent = sc.title;
+    body.innerHTML = `<form id="appForm" class="space-y-4">${sc.fields.map(f => fieldHtml(f, q[f.id])).join('')}
+      <button class="w-full ${sc.danger ? 'bg-red-600 hover:bg-red-700' : 'bg-kide-600 hover:bg-kide-700'} text-white rounded-xl py-2.5 font-medium text-sm">${sc.submit}</button></form>`;
+    $('appForm').onsubmit = ev => {
+      ev.preventDefault(); const v = {}; sc.fields.forEach(f => { const el = $('appForm').elements[f.id]; v[f.id] = f.type === 'toggle' ? el.checked : el.value; });
+      const r = ref(), msg = sc.done(v);
+      body.innerHTML = `<div class="text-center pt-6 appear"><div class="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-2xl mb-3"><i class="fa-solid fa-check"></i></div><p class="font-semibold">Valmis</p><p class="text-xs text-slate-600 mt-2 px-2">${esc(msg)}</p><p class="text-[11px] text-slate-400 mt-3">Viite ${r}</p>
+        <div class="mt-5 space-y-2">${(sc.next || []).map(([l, rt]) => `<a href="#${rt}" class="block bg-kide-600 text-white rounded-xl py-2 text-sm">${l}</a>`).join('')}<a href="#/" class="block border border-slate-200 rounded-xl py-2 text-sm">Etusivulle</a></div></div>`;
+      M.appActions++; renderStats(); addSystem(`Mobiilipankki: ${esc(sc.title)}. ${esc(msg)} (viite ${r})`);
+    };
+  }
+  const ph = $('phone'); ph.classList.remove('flash'); void ph.offsetWidth; if (path !== '/') ph.classList.add('flash');
+  if (path !== '/' && window.innerWidth < 1280) ph.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function fieldHtml(f, pre) {
+  const lab = `<label class="block text-xs font-medium text-slate-600 mb-1.5">${f.label}</label>`;
+  const val = pre ?? f.def ?? (f.options ? f.options[0][0] : '');
+  if (f.type === 'radio') return `<div>${lab}<div class="space-y-1.5">${f.options.map(([k, l]) => `<label class="flex items-center gap-2.5 border border-slate-200 rounded-lg px-3 py-2 cursor-pointer has-[:checked]:border-kide-500 has-[:checked]:bg-kide-50"><input type="radio" name="${f.id}" value="${k}" ${k === val ? 'checked' : ''} class="accent-kide-600"><span class="text-xs">${l}</span></label>`).join('')}</div></div>`;
+  if (f.type === 'select') return `<div>${lab}<select name="${f.id}" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs bg-white">${f.options.map(([k, l]) => `<option value="${k}" ${k === val ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`;
+  if (f.type === 'toggle') return `<label class="flex items-center justify-between"><span class="text-xs text-slate-700">${f.label}</span><input type="checkbox" name="${f.id}" ${val ? 'checked' : ''} class="w-4 h-4 accent-kide-600"></label>`;
+  if (f.type === 'textarea') return `<div>${lab}<textarea name="${f.id}" rows="4" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-xs">${esc(val)}</textarea></div>`;
+  return `<div>${lab}<input name="${f.id}" type="${f.type}" value="${esc(val)}" class="num w-full border border-slate-200 rounded-lg px-3 py-2 text-xs"></div>`;
+}
+window.addEventListener('hashchange', route);
+
+/* ================= SCENARIOS, SETTINGS, INIT ================= */
+const SCEN = [
+  ['spell-check', 'Kirjoitusvirheet', 'mun pankikortti meni poikki pesukoneesa, paljonko maksa kortin uusimine?'],
+  ['location-arrow', 'Ohjaa suoraan', 'voitko ohjata minut suoraan siihen mistä kortin voi tilata'],
+  ['bolt', 'Kortti varastettu', 'apua mun kortti varastettiin kaupungilla!'],
+  ['calculator', 'Lainalaskuri', 'paljonko olisi kuukausierä 220 000 € lainalle 25 vuodeksi 4,2 % korolla?'],
+  ['user-shield', 'Henkilötunnus viestissä', 'mun hetu on 010190-123X, voitko tarkistaa saldon?'],
+  ['headset', 'Lainapäätös', 'voitko antaa heti sitovan lainapäätöksen 240 000 € asunnolle?'],
+  ['scale-balanced', 'Sijoitusneuvo', 'kannattaako ostaa nokian osakkeita vai bitcoinia?'],
+  ['circle-question', 'Ei tietokannassa', 'voinko vuokrata pankista tallelokeron?']
+];
+$('scenarios').innerHTML = SCEN.map(([ic, l, t], i) => `<button onclick='ask(${JSON.stringify(t)})' class="text-left px-3 py-2 rounded-lg border border-slate-200 hover:border-kide-500 hover:bg-kide-50/60 flex items-center gap-2.5"><i class="fa-solid fa-${ic} text-kide-600 text-xs w-4"></i><span class="text-xs font-medium text-slate-700">${i + 1}. ${l}</span></button>`).join('');
+$('suggest').innerHTML = ['Kortin uusiminen', 'Tilisiirron aikataulu', 'Lähimaksun raja', 'Asuntolainan kulut', 'Kirjautuminen ei toimi'].map(t => `<button type="button" onclick="ask('${t}')" class="text-[11px] px-2.5 py-1 rounded-full border border-slate-200 text-slate-600 hover:border-kide-500 hover:text-kide-700">${t}</button>`).join('');
+
+function openModal(id) { $('apiKey').value = sessionStorage.getItem('GEMINI_KEY') || ''; $('apiModel').value = sessionStorage.getItem('GEMINI_MODEL') || 'gemini-2.5-flash'; $(id).classList.remove('hidden'); $(id).classList.add('flex'); }
+function closeModal(id) { $(id).classList.add('hidden'); $(id).classList.remove('flex'); }
+function saveKey(keep) {
+  try { if (keep && $('apiKey').value.trim()) { sessionStorage.setItem('GEMINI_KEY', $('apiKey').value.trim()); sessionStorage.setItem('GEMINI_MODEL', $('apiModel').value.trim() || 'gemini-2.5-flash'); } else sessionStorage.removeItem('GEMINI_KEY'); } catch (e) {}
+  updateMode(); closeModal('apiModal');
+}
+function updateMode() { let k = false; try { k = !!sessionStorage.getItem('GEMINI_KEY'); } catch (e) {} $('modeText').textContent = k ? 'Haku + Gemini-muotoilu' : 'Paikallinen haku (ei API-avainta)'; $('modeDot').className = 'w-2 h-2 rounded-full ' + (k ? 'bg-sky-400' : 'bg-emerald-400'); }
+function resetChat() {
+  $('chat').innerHTML = ''; history = []; lastDoc = null; $('escBanner').classList.add('hidden');
+  addBot({ kind: 'ok', text: 'Hei! Olen Kide Pankin digitaalinen assistentti. Vastaan pankin virallisen tietokannan pohjalta ja vien sinut tarvittaessa suoraan oikeaan kohtaan mobiilipankissa.\n\nEn kysy tunnuksia enkä tee lainapäätöksiä. Niissä asioissa ohjaan asiantuntijalle.' });
+}
+updateMode(); resetChat(); renderStats(); route();
+</script>
+</body>
+</html>
